@@ -7,6 +7,6 @@ GRANT ALL PRIVILEGES ON DATABASE rentals TO program;
 CREATE DATABASE payments;
 GRANT ALL PRIVILEGES ON DATABASE payments TO program;
 
-\ir init-cars-db.sql
-\ir init-rental-db.sql
-\ir init-payment-db.sql
+\ir /docker-entrypoint-initdb.d/scripts/init-cars-db.sql
+\ir /docker-entrypoint-initdb.d/scripts/init-rental-db.sql
+\ir /docker-entrypoint-initdb.d/scripts/init-payment-db.sql
