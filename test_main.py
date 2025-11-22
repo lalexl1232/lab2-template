@@ -1,88 +1,124 @@
 #!/usr/bin/env python3
 """
-Root test runner for all services.
-This file allows you to run tests from the project root.
-
-Usage:
-    # Test all services
-    python3 test_main.py
-    # OR
-    ./test_main.py
-
-    # Test specific service
-    python3 test_main.py payment
-    python3 test_main.py cars
-    python3 test_main.py rental
-    python3 test_main.py gateway
+Integration tests for Car Rental System
+Tests health endpoints and gateway API endpoints
 """
+import pytest
+import requests
 
-import subprocess
-import sys
-from pathlib import Path
+BASE_URL = "http://localhost:8080"
+CARS_SERVICE_URL = "http://localhost:8070"
+RENTAL_SERVICE_URL = "http://localhost:8060"
+PAYMENT_SERVICE_URL = "http://localhost:8050"
 
-SERVICES = {
-    "payment": "services/payment_service",
-    "cars": "services/cars_service",
-    "rental": "services/rental_service",
-    "gateway": "services/gateway_service"
-}
+# Health check tests
+def test_gateway_health():
+    """Test Gateway service health endpoint"""
+    response = requests.get(f"{BASE_URL}/manage/health")
+    print(f"Gateway health: {response.status_code} - {response.json()}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
 
+def test_cars_service_health():
+    """Test Cars service health endpoint"""
+    response = requests.get(f"{CARS_SERVICE_URL}/manage/health")
+    print(f"Cars service health: {response.status_code} - {response.json()}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
 
-def run_tests(service_name, service_path):
-    """Run tests for a specific service."""
-    separator = "=" * 60
-    print(f"\n{separator}")
-    print(f"Testing {service_name.upper()} Service")
-    print(f"{separator}\n")
+def test_rental_service_health():
+    """Test Rental service health endpoint"""
+    response = requests.get(f"{RENTAL_SERVICE_URL}/manage/health")
+    print(f"Rental service health: {response.status_code} - {response.json()}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
 
-    service_dir = Path(__file__).parent / service_path
+def test_payment_service_health():
+    """Test Payment service health endpoint"""
+    response = requests.get(f"{PAYMENT_SERVICE_URL}/manage/health")
+    print(f"Payment service health: {response.status_code} - {response.json()}")
+    assert response.status_code == 200
+    assert response.json()["status"] == "ok"
 
-    # Run pytest in the service directory
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", "test_main.py", "-v"],
-        cwd=service_dir,
-        capture_output=False
-    )
+# Gateway API tests
+def test_get_cars():
+    """Test GET /api/v1/cars endpoint"""
+    response = requests.get(f"{BASE_URL}/api/v1/cars?page=1&size=10&showAll=false")
+    print(f"GET /api/v1/cars: {response.status_code}")
+    assert response.status_code == 200
+    data = response.json()
+    assert "items" in data
+    assert "page" in data
+    assert "pageSize" in data
+    assert "totalElements" in data
 
-    return result.returncode == 0
+def test_get_user_rentals():
+    """Test GET /api/v1/rental endpoint"""
+    headers = {"X-User-Name": "Test Max"}
+    response = requests.get(f"{BASE_URL}/api/v1/rental", headers=headers)
+    print(f"GET /api/v1/rental: {response.status_code}")
+    assert response.status_code == 200
+    assert isinstance(response.json(), list)
 
+def test_create_and_cancel_rental():
+    """Test POST /api/v1/rental and DELETE /api/v1/rental/{rental_uid} endpoints"""
+    headers = {"X-User-Name": "Test Max"}
 
-def main():
-    if len(sys.argv) > 1:
-        # Test specific service
-        service = sys.argv[1].lower()
-        if service not in SERVICES:
-            print(f"Error: Unknown service '{service}'")
-            print(f"Available services: {', '.join(SERVICES.keys())}")
-            sys.exit(1)
+    # Create rental
+    rental_data = {
+        "carUid": "109b42f3-198d-4c89-9276-a7520a7120ab",
+        "dateFrom": "2021-10-08",
+        "dateTo": "2021-10-11"
+    }
+    response = requests.post(f"{BASE_URL}/api/v1/rental", json=rental_data, headers=headers)
+    print(f"POST /api/v1/rental: {response.status_code}")
+    assert response.status_code == 200
 
-        success = run_tests(service, SERVICES[service])
-        sys.exit(0 if success else 1)
-    else:
-        # Test all services
-        print("Running tests for all services...")
-        failed_services = []
+    data = response.json()
+    assert "rentalUid" in data
+    assert "status" in data
+    assert data["status"] == "IN_PROGRESS"
 
-        for service_name, service_path in SERVICES.items():
-            success = run_tests(service_name, service_path)
-            if not success:
-                failed_services.append(service_name)
+    rental_uid = data["rentalUid"]
 
-        # Summary
-        separator = "=" * 60
-        print(f"\n{separator}")
-        print("Test Summary")
-        print(separator)
+    # Get specific rental
+    response = requests.get(f"{BASE_URL}/api/v1/rental/{rental_uid}", headers=headers)
+    print(f"GET /api/v1/rental/{rental_uid}: {response.status_code}")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["rentalUid"] == rental_uid
 
-        if not failed_services:
-            print("✅ All services passed tests!")
-            sys.exit(0)
-        else:
-            print("❌ Failed services:")
-            for service in failed_services:
-                print(f"  - {service}")
-            sys.exit(1)
+    # Cancel rental
+    response = requests.delete(f"{BASE_URL}/api/v1/rental/{rental_uid}", headers=headers)
+    print(f"DELETE /api/v1/rental/{rental_uid}: {response.status_code}")
+    assert response.status_code == 204
 
+def test_create_and_finish_rental():
+    """Test POST /api/v1/rental/{rental_uid}/finish endpoint"""
+    headers = {"X-User-Name": "Test Max"}
+
+    # Create rental
+    rental_data = {
+        "carUid": "109b42f3-198d-4c89-9276-a7520a7120ab",
+        "dateFrom": "2021-10-08",
+        "dateTo": "2021-10-11"
+    }
+    response = requests.post(f"{BASE_URL}/api/v1/rental", json=rental_data, headers=headers)
+    print(f"POST /api/v1/rental: {response.status_code}")
+    assert response.status_code == 200
+
+    rental_uid = response.json()["rentalUid"]
+
+    # Finish rental
+    response = requests.post(f"{BASE_URL}/api/v1/rental/{rental_uid}/finish", headers=headers)
+    print(f"POST /api/v1/rental/{rental_uid}/finish: {response.status_code}")
+    assert response.status_code == 204
+
+    # Verify status changed
+    response = requests.get(f"{BASE_URL}/api/v1/rental/{rental_uid}", headers=headers)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "FINISHED"
 
 if __name__ == "__main__":
-    main()
+    pytest.main([__file__, "-v"])
