@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from uuid import UUID
 from typing import Literal
 
@@ -12,9 +12,10 @@ class PaymentCreate(PaymentBase):
 
 
 class PaymentResponse(BaseModel):
-    payment_uid: UUID
+    payment_uid: UUID = Field(serialization_alias="paymentUid")
     status: Literal["PAID", "CANCELED"]
     price: int
 
     class Config:
         from_attributes = True
+        populate_by_name = True

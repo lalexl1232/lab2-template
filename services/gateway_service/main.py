@@ -76,7 +76,7 @@ async def create_rental(
         )
         if reserve_response.status_code != 200:
             # Rollback payment
-            await client.delete(f"{PAYMENT_SERVICE_URL}/api/v1/payment/{payment_data['payment_uid']}")
+            await client.delete(f"{PAYMENT_SERVICE_URL}/api/v1/payment/{payment_data['paymentUid']}")
             raise HTTPException(status_code=500, detail="Failed to reserve car")
 
         # Create rental
@@ -84,10 +84,10 @@ async def create_rental(
             f"{RENTAL_SERVICE_URL}/api/v1/rental",
             json={
                 "username": x_user_name,
-                "payment_uid": payment_data["payment_uid"],
-                "car_uid": str(rental_request.car_uid),
-                "date_from": rental_request.date_from,
-                "date_to": rental_request.date_to
+                "paymentUid": payment_data["paymentUid"],
+                "carUid": str(rental_request.car_uid),
+                "dateFrom": rental_request.date_from,
+                "dateTo": rental_request.date_to
             }
         )
         if rental_response.status_code != 200:
@@ -96,19 +96,19 @@ async def create_rental(
                 f"{CARS_SERVICE_URL}/api/v1/cars/{rental_request.car_uid}/availability",
                 params={"available": True}
             )
-            await client.delete(f"{PAYMENT_SERVICE_URL}/api/v1/payment/{payment_data['payment_uid']}")
+            await client.delete(f"{PAYMENT_SERVICE_URL}/api/v1/payment/{payment_data['paymentUid']}")
             raise HTTPException(status_code=500, detail="Rental service error")
 
         rental_data = rental_response.json()
 
         return CreateRentalResponse(
-            rental_uid=rental_data["rental_uid"],
+            rental_uid=rental_data["rentalUid"],
             status=rental_data["status"],
             car_uid=rental_request.car_uid,
             date_from=rental_request.date_from,
             date_to=rental_request.date_to,
             payment=PaymentInfo(
-                payment_uid=payment_data["payment_uid"],
+                payment_uid=payment_data["paymentUid"],
                 status=payment_data["status"],
                 price=payment_data["price"]
             )
@@ -132,29 +132,29 @@ async def get_user_rentals(x_user_name: str = Header(..., alias="X-User-Name")):
         for rental in rentals:
             # Get car info
             car_response = await client.get(
-                f"{CARS_SERVICE_URL}/api/v1/cars/{rental['car_uid']}"
+                f"{CARS_SERVICE_URL}/api/v1/cars/{rental['carUid']}"
             )
             car_data = car_response.json() if car_response.status_code == 200 else {}
 
             # Get payment info
             payment_response = await client.get(
-                f"{PAYMENT_SERVICE_URL}/api/v1/payment/{rental['payment_uid']}"
+                f"{PAYMENT_SERVICE_URL}/api/v1/payment/{rental['paymentUid']}"
             )
             payment_data = payment_response.json() if payment_response.status_code == 200 else {}
 
             result.append(RentalResponse(
-                rental_uid=rental["rental_uid"],
+                rental_uid=rental["rentalUid"],
                 status=rental["status"],
-                date_from=rental["date_from"],
-                date_to=rental["date_to"],
+                date_from=rental["dateFrom"],
+                date_to=rental["dateTo"],
                 car=CarInfo(
-                    car_uid=car_data.get("car_uid", rental["car_uid"]),
+                    car_uid=car_data.get("carUid", rental["carUid"]),
                     brand=car_data.get("brand", ""),
                     model=car_data.get("model", ""),
-                    registration_number=car_data.get("registration_number", "")
+                    registration_number=car_data.get("registrationNumber", "")
                 ),
                 payment=PaymentInfo(
-                    payment_uid=payment_data.get("payment_uid", rental["payment_uid"]),
+                    payment_uid=payment_data.get("paymentUid", rental["paymentUid"]),
                     status=payment_data.get("status", "PAID"),
                     price=payment_data.get("price", 0)
                 )
@@ -183,29 +183,29 @@ async def get_rental(
 
         # Get car info
         car_response = await client.get(
-            f"{CARS_SERVICE_URL}/api/v1/cars/{rental['car_uid']}"
+            f"{CARS_SERVICE_URL}/api/v1/cars/{rental['carUid']}"
         )
         car_data = car_response.json() if car_response.status_code == 200 else {}
 
         # Get payment info
         payment_response = await client.get(
-            f"{PAYMENT_SERVICE_URL}/api/v1/payment/{rental['payment_uid']}"
+            f"{PAYMENT_SERVICE_URL}/api/v1/payment/{rental['paymentUid']}"
         )
         payment_data = payment_response.json() if payment_response.status_code == 200 else {}
 
         return RentalResponse(
-            rental_uid=rental["rental_uid"],
+            rental_uid=rental["rentalUid"],
             status=rental["status"],
-            date_from=rental["date_from"],
-            date_to=rental["date_to"],
+            date_from=rental["dateFrom"],
+            date_to=rental["dateTo"],
             car=CarInfo(
-                car_uid=car_data.get("car_uid", rental["car_uid"]),
+                car_uid=car_data.get("carUid", rental["carUid"]),
                 brand=car_data.get("brand", ""),
                 model=car_data.get("model", ""),
-                registration_number=car_data.get("registration_number", "")
+                registration_number=car_data.get("registrationNumber", "")
             ),
             payment=PaymentInfo(
-                payment_uid=payment_data.get("payment_uid", rental["payment_uid"]),
+                payment_uid=payment_data.get("paymentUid", rental["paymentUid"]),
                 status=payment_data.get("status", "PAID"),
                 price=payment_data.get("price", 0)
             )
@@ -240,12 +240,12 @@ async def cancel_rental(
 
         # Release car
         await client.patch(
-            f"{CARS_SERVICE_URL}/api/v1/cars/{rental['car_uid']}/availability",
+            f"{CARS_SERVICE_URL}/api/v1/cars/{rental['carUid']}/availability",
             params={"available": True}
         )
 
         # Cancel payment
-        await client.delete(f"{PAYMENT_SERVICE_URL}/api/v1/payment/{rental['payment_uid']}")
+        await client.delete(f"{PAYMENT_SERVICE_URL}/api/v1/payment/{rental['paymentUid']}")
 
         return None
 
@@ -278,7 +278,7 @@ async def finish_rental(
 
         # Release car
         await client.patch(
-            f"{CARS_SERVICE_URL}/api/v1/cars/{rental['car_uid']}/availability",
+            f"{CARS_SERVICE_URL}/api/v1/cars/{rental['carUid']}/availability",
             params={"available": True}
         )
 
