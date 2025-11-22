@@ -74,9 +74,14 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - payment
-      - rental
-      - cars
+      postgres:
+        condition: service_healthy
+      payment:
+        condition: service_started
+      rental:
+        condition: service_started
+      cars:
+        condition: service_started
 
 volumes:
   db-data:
